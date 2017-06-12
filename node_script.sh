@@ -78,18 +78,12 @@ do
 done > $TMP/local_bamlist
 
 # Copy BAM files to a local directory
-$PARALLEL --jobs=${NUM_THREADS} --link $SAMTOOLS\
-  ::: view\
-  ::: -o\
-  :::: $TMP/local_bamlist\
-  ::: -b\
-  :::: $TMP/global_bamlist\
-  ::: "${chrom}:${start_padded}-${end_padded}"
-
+$PARALLEL --jobs=${NUM_THREADS} --link $SAMTOOLS view -o {1} -b {2} "${chrom}:${start_padded}-${end_padded}" \
+  :::: $TMP/local_bamlist \
+  :::: $TMP/global_bamlist
 
 # Index BAM files
-$PARALLEL --jobs=${NUM_THREADS} $SAMTOOLS\
-  ::: index\
+$PARALLEL --jobs=${NUM_THREADS} $SAMTOOLS index\
   :::: $TMP/local_bamlist
 
 # Get wall-clock time of copying files to local disk
@@ -116,11 +110,8 @@ Flag meaning:
  - |: Iteration separator."
 
 # Paralize the call script
-$PARALLEL --jobs=$NUM_SLICES_RUNNING --halt=now,fail=1 bash\
-  ::: $TMP/call_script.sh\
-  ::: $TMP/config.sh\
-  ::: $TMP/local_bamlist\
-  ::: $(echo ${regions[*]})
+$PARALLEL --jobs=$NUM_SLICES_RUNNING --halt=now,fail=1 bash $TMP/call_script.sh $TMP/config.sh $TMP/local_bamlist\
+  ::: ${regions[*]}
 
 # Get wall-clock time of genotyping
 genotyping_time=$(date +%s)
@@ -134,8 +125,8 @@ $((genotyping_time - start_time))
 "
 
 # Concatenate all VCF files
-$VT cat $TMP/results/${chrom}/*.vcf.gz \
-  | $VT sort -o $TMP/final.vcf.gz -m local -w 200 -
+$VT cat $TMP/results/${chrom}/*.vcf.gz |
+  $VT sort -o $TMP/final.vcf.gz -m local -w 200 -
 
 $TABIX $TMP/final.vcf.gz
 
